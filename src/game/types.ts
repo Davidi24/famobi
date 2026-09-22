@@ -2,6 +2,8 @@ export type Direction = 'up' | 'down' | 'left' | 'right';
 
 export type GamePhase = 'menu' | 'playing' | 'paused' | 'level-complete' | 'game-over' | 'finished';
 
+export type PauseSource = 'player' | 'system' | null;
+
 export type Point = {
   x: number;
   y: number;
@@ -25,7 +27,8 @@ export type GameSnapshot = {
   food: Point;
   obstacles: Point[];
   direction: Direction;
-  failureReason: 'wall' | 'snake' | 'obstacle' | null;
+  pauseSource: PauseSource;
+  failureReason: 'wall' | 'snake' | 'obstacle' | 'external' | null;
 };
 
 export type GameListener = (snapshot: GameSnapshot) => void;

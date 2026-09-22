@@ -2,6 +2,8 @@ import './style.css';
 
 import Phaser from 'phaser';
 
+import { GameController } from './application/GameController';
+import { LocalGameStorage } from './core/storage/GameStorage';
 import { SnakeScene } from './game/scenes/SnakeScene';
 import { SnakeGame } from './game/snakeGame';
 import type { Direction, GamePhase, GameSnapshot } from './game/types';
@@ -14,6 +16,7 @@ const requiredElement = <T extends HTMLElement>(selector: string): T => {
 
 const levelValue = requiredElement<HTMLElement>('#level-value');
 const scoreValue = requiredElement<HTMLElement>('#score-value');
+const bestValue = requiredElement<HTMLElement>('#best-value');
 const fruitValue = requiredElement<HTMLElement>('#fruit-value');
 const progressValue = requiredElement<HTMLElement>('#progress-value');
 const overlay = requiredElement<HTMLElement>('#game-overlay');
@@ -23,10 +26,13 @@ const overlayCopy = requiredElement<HTMLElement>('#overlay-copy');
 const primaryAction = requiredElement<HTMLButtonElement>('#primary-action');
 const secondaryAction = requiredElement<HTMLButtonElement>('#secondary-action');
 const pauseButton = requiredElement<HTMLButtonElement>('#pause-button');
+const muteButton = requiredElement<HTMLButtonElement>('#mute-button');
+const levelSelect = requiredElement<HTMLElement>('#level-select');
 
-const game = new SnakeGame();
-const snakeScene = new SnakeScene(game);
-let currentSnapshot = game.getSnapshot();
+const simulation = new SnakeGame();
+const controller = new GameController(simulation, new LocalGameStorage());
+const snakeScene = new SnakeScene(controller);
+let currentSnapshot = controller.getSnapshot();
 
 const phaserGame = new Phaser.Game({
   type: Phaser.AUTO,
@@ -48,7 +54,8 @@ const phaserGame = new Phaser.Game({
 const failureCopy: Record<NonNullable<GameSnapshot['failureReason']>, string> = {
   wall: 'You ran into the edge of the grid.',
   snake: 'You crossed your own trail.',
-  obstacle: 'That barrier was tougher than it looked.'
+  obstacle: 'That barrier was tougher than it looked.',
+  external: 'The run was ended by an external game command.'
 };
 
 const overlayContent: Record<
@@ -57,7 +64,7 @@ const overlayContent: Record<
     eyebrow: string;
     title: string;
     copy: string;
-    primary: string;
+    primary?: string;
     secondary?: string;
   }
 > = {
@@ -67,13 +74,20 @@ const overlayContent: Record<
     copy: 'Eat the fruit, avoid the walls, and clear every level.',
     primary: 'Start game'
   }),
-  paused: () => ({
-    eyebrow: 'Game paused',
-    title: 'Take a breather',
-    copy: 'Your run is waiting exactly where you left it.',
-    primary: 'Resume',
-    secondary: 'Exit to menu'
-  }),
+  paused: (snapshot) =>
+    snapshot.pauseSource === 'system'
+      ? {
+          eyebrow: 'Game paused',
+          title: 'Please wait',
+          copy: 'Gameplay will continue when the interruption has ended.'
+        }
+      : {
+          eyebrow: 'Game paused',
+          title: 'Take a breather',
+          copy: 'Your run is waiting exactly where you left it.',
+          primary: 'Resume',
+          secondary: 'Exit to menu'
+        },
   'level-complete': (snapshot) => ({
     eyebrow: `Level ${snapshot.level} clear`,
     title: 'Nice moves!',
@@ -102,6 +116,7 @@ const renderInterface = (snapshot: GameSnapshot): void => {
 
   levelValue.textContent = String(snapshot.level);
   scoreValue.textContent = String(snapshot.score);
+  bestValue.textContent = String(controller.getProfile().bestScore);
   fruitValue.textContent = `${snapshot.fruitEaten} / ${snapshot.target}`;
   progressValue.style.transform = `scaleX(${Math.min(1, snapshot.progress)})`;
 
@@ -109,6 +124,11 @@ const renderInterface = (snapshot: GameSnapshot): void => {
   pauseButton.disabled = !canPause;
   pauseButton.setAttribute('aria-label', snapshot.phase === 'paused' ? 'Resume game' : 'Pause game');
   pauseButton.firstElementChild!.textContent = snapshot.phase === 'paused' ? '▶' : 'Ⅱ';
+  levelSelect.hidden = snapshot.phase !== 'menu';
+  levelSelect.querySelectorAll<HTMLButtonElement>('[data-level]').forEach((button) => {
+    const level = Number(button.dataset.level);
+    button.disabled = level > controller.getProfile().highestUnlockedLevel;
+  });
 
   if (snapshot.phase === 'playing') {
     overlay.hidden = true;
@@ -120,7 +140,8 @@ const renderInterface = (snapshot: GameSnapshot): void => {
   overlayEyebrow.textContent = content.eyebrow;
   overlayTitle.textContent = content.title;
   overlayCopy.textContent = content.copy;
-  primaryAction.textContent = content.primary;
+  primaryAction.textContent = content.primary ?? '';
+  primaryAction.hidden = !content.primary;
   secondaryAction.textContent = content.secondary ?? '';
   secondaryAction.hidden = !content.secondary;
 };
@@ -129,16 +150,16 @@ const performPrimaryAction = (): void => {
   switch (currentSnapshot.phase) {
     case 'menu':
     case 'finished':
-      game.start();
+      controller.startNewGame();
       break;
     case 'paused':
-      game.resume();
+      if (currentSnapshot.pauseSource === 'player') controller.togglePlayerPause();
       break;
     case 'level-complete':
-      game.nextLevel();
+      controller.goToNextLevel();
       break;
     case 'game-over':
-      game.restartLevel();
+      controller.restartLevel();
       break;
     case 'playing':
       break;
@@ -146,21 +167,36 @@ const performPrimaryAction = (): void => {
 };
 
 const togglePause = (): void => {
-  if (currentSnapshot.phase === 'playing') game.pause();
-  else if (currentSnapshot.phase === 'paused') game.resume();
+  controller.togglePlayerPause();
 };
 
-game.subscribe(renderInterface);
+const renderAudioState = (): void => {
+  const audioState = controller.getAudioState();
+  muteButton.setAttribute('aria-label', audioState.playerMuted ? 'Unmute audio' : 'Mute audio');
+  muteButton.firstElementChild!.textContent = audioState.effectiveMuted ? '×' : '♪';
+};
+
+controller.subscribe(renderInterface);
+controller.events.on('audioChanged', renderAudioState);
+renderAudioState();
 
 primaryAction.addEventListener('click', performPrimaryAction);
-secondaryAction.addEventListener('click', () => game.quitToMenu());
+secondaryAction.addEventListener('click', () => controller.quitToMenu());
 pauseButton.addEventListener('click', togglePause);
+muteButton.addEventListener('click', () => controller.togglePlayerMuted());
 
 document.querySelectorAll<HTMLButtonElement>('[data-direction]').forEach((button) => {
   button.addEventListener('click', () => {
-    game.setDirection(button.dataset.direction as Direction);
+    controller.move(button.dataset.direction as Direction);
     phaserGame.canvas.focus({ preventScroll: true });
   });
 });
 
-window.addEventListener('beforeunload', () => phaserGame.destroy(true));
+levelSelect.querySelectorAll<HTMLButtonElement>('[data-level]').forEach((button) => {
+  button.addEventListener('click', () => controller.startAtLevel(Number(button.dataset.level)));
+});
+
+window.addEventListener('beforeunload', () => {
+  controller.dispose();
+  phaserGame.destroy(true);
+});

@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 
+import { GameController } from '../../application/GameController';
 import { getSwipeDirection, mapKeyboardInput, type InputAction } from '../input';
 import { BOARD_SIZE, getLevelConfig } from '../levels';
-import { SnakeGame } from '../snakeGame';
 import type { Direction, GameSnapshot, Point } from '../types';
 
 const palette = {
@@ -23,7 +23,7 @@ export class SnakeScene extends Phaser.Scene {
   private unsubscribe: (() => void) | null = null;
   private pointerStart: Point | null = null;
 
-  constructor(private readonly simulation: SnakeGame) {
+  constructor(private readonly controller: GameController) {
     super({ key: 'SnakeScene' });
   }
 
@@ -32,10 +32,11 @@ export class SnakeScene extends Phaser.Scene {
     this.game.canvas.tabIndex = 0;
     this.game.canvas.setAttribute('aria-label', 'Neon Snake playfield');
 
-    this.unsubscribe = this.simulation.subscribe((snapshot) => {
+    this.unsubscribe = this.controller.subscribe((snapshot) => {
       this.draw(snapshot);
       this.syncTimer(snapshot);
     });
+    this.controller.markReady();
 
     this.input.keyboard?.on('keydown', this.handleKeyDown);
     this.input.on('pointerdown', this.handlePointerDown);
@@ -52,21 +53,20 @@ export class SnakeScene extends Phaser.Scene {
 
   private handleAction(action: InputAction): void {
     if (action.type === 'move') {
-      this.simulation.setDirection(action.direction);
+      this.controller.move(action.direction);
       return;
     }
 
-    const snapshot = this.simulation.getSnapshot();
+    const snapshot = this.controller.getSnapshot();
     if (action.type === 'pause') {
-      if (snapshot.phase === 'playing') this.simulation.pause();
-      else if (snapshot.phase === 'paused') this.simulation.resume();
+      this.controller.togglePlayerPause();
       return;
     }
 
-    if (snapshot.phase === 'menu' || snapshot.phase === 'finished') this.simulation.start();
-    else if (snapshot.phase === 'paused') this.simulation.resume();
-    else if (snapshot.phase === 'level-complete') this.simulation.nextLevel();
-    else if (snapshot.phase === 'game-over') this.simulation.restartLevel();
+    if (snapshot.phase === 'menu' || snapshot.phase === 'finished') this.controller.startNewGame();
+    else if (snapshot.phase === 'paused' && snapshot.pauseSource === 'player') this.controller.togglePlayerPause();
+    else if (snapshot.phase === 'level-complete') this.controller.goToNextLevel();
+    else if (snapshot.phase === 'game-over') this.controller.restartLevel();
   }
 
   private handlePointerDown = (pointer: Phaser.Input.Pointer): void => {
@@ -78,7 +78,7 @@ export class SnakeScene extends Phaser.Scene {
     if (!this.pointerStart) return;
     const direction = getSwipeDirection(pointer.x - this.pointerStart.x, pointer.y - this.pointerStart.y);
     this.pointerStart = null;
-    if (direction) this.simulation.setDirection(direction);
+    if (direction) this.controller.move(direction);
   };
 
   private syncTimer(snapshot: GameSnapshot): void {
@@ -90,7 +90,7 @@ export class SnakeScene extends Phaser.Scene {
     if (this.timer) return;
     this.timer = this.time.delayedCall(getLevelConfig(snapshot.level).tickMs, () => {
       this.timer = null;
-      this.simulation.step();
+      this.controller.tick();
     });
   }
 

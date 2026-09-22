@@ -1,5 +1,5 @@
 import { BOARD_SIZE, getLevelConfig, LEVELS } from './levels';
-import type { Direction, GameListener, GamePhase, GameSnapshot, Point } from './types';
+import type { Direction, GameListener, GamePhase, GameSnapshot, PauseSource, Point } from './types';
 
 const directionVectors: Record<Direction, Point> = {
   up: { x: 0, y: -1 },
@@ -27,6 +27,7 @@ export class SnakeGame {
   private food: Point = { x: 15, y: 10 };
   private direction: Direction = 'right';
   private queuedDirection: Direction = 'right';
+  private pauseSource: PauseSource = null;
   private failureReason: GameSnapshot['failureReason'] = null;
   private listeners = new Set<GameListener>();
 
@@ -54,12 +55,21 @@ export class SnakeGame {
       food: { ...this.food },
       obstacles: config.obstacles.map((point) => ({ ...point })),
       direction: this.direction,
+      pauseSource: this.pauseSource,
       failureReason: this.failureReason
     };
   }
 
   start(): void {
     this.level = 1;
+    this.score = 0;
+    this.scoreAtLevelStart = 0;
+    this.startLevel();
+  }
+
+  startAtLevel(level: number): void {
+    getLevelConfig(level);
+    this.level = level;
     this.score = 0;
     this.scoreAtLevelStart = 0;
     this.startLevel();
@@ -77,15 +87,18 @@ export class SnakeGame {
     this.startLevel();
   }
 
-  pause(): void {
-    if (this.phase !== 'playing') return;
+  pause(source: Exclude<PauseSource, null>): void {
+    if (this.phase !== 'playing' && this.phase !== 'paused') return;
+    if (this.phase === 'paused' && this.pauseSource === source) return;
     this.phase = 'paused';
+    this.pauseSource = source;
     this.emit();
   }
 
   resume(): void {
     if (this.phase !== 'paused') return;
     this.phase = 'playing';
+    this.pauseSource = null;
     this.emit();
   }
 
@@ -99,6 +112,11 @@ export class SnakeGame {
     if (this.phase !== 'playing') return;
     if (oppositeDirections[this.direction] === direction) return;
     this.queuedDirection = direction;
+  }
+
+  forceGameOver(): void {
+    if (this.phase !== 'playing' && this.phase !== 'paused') return;
+    this.fail('external');
   }
 
   step(): void {
@@ -149,6 +167,7 @@ export class SnakeGame {
 
   private startLevel(): void {
     this.phase = 'playing';
+    this.pauseSource = null;
     this.fruitEaten = 0;
     this.failureReason = null;
     this.resetBoard();

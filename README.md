@@ -10,6 +10,8 @@ This repository is intentionally a small game only. It does not contain the Famo
 - Eat the required number of fruit to advance.
 - Avoid walls, your own trail, and level obstacles.
 - Pause, resume, retry, or return to the main menu.
+- Unlock levels, retain a best score, and restore mute preferences between sessions.
+- Hear lightweight procedural sound effects without external audio assets.
 - Play with arrow keys, WASD, swipe gestures, or the on-screen direction pad.
 
 ## Run locally
@@ -35,6 +37,16 @@ pnpm preview
 
 ```text
 src/
+├── application/
+│   ├── GameController.ts
+│   └── gameEvents.ts
+├── core/
+│   ├── audio/
+│   │   └── GameAudio.ts
+│   ├── events/
+│   │   └── EventBus.ts
+│   └── storage/
+│       └── GameStorage.ts
 ├── game/
 │   ├── input.ts
 │   ├── levels.ts
@@ -46,7 +58,9 @@ src/
 └── style.css
 ```
 
-The game simulation remains independent from Phaser. The scene adapts simulation state into graphics and input, while the HUD and menus remain accessible DOM elements.
+The game simulation remains independent from Phaser. An application controller coordinates commands, persistence, audio, and domain events. The Phaser scene adapts simulation state into graphics and input, while the HUD and menus remain accessible DOM elements.
+
+Player preferences, the best score, completed runs, and unlocked levels are saved locally. Audio is generated in the browser without external media files.
 
 ## Publish with GitHub Pages
 
