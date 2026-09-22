@@ -62,13 +62,6 @@ The game simulation remains independent from Phaser. An application controller c
 
 Player preferences, the best score, completed runs, and unlocked levels are saved locally. Audio is generated in the browser without external media files.
 
-## Publish with GitHub Pages
-
-1. Create a public GitHub repository and place these files at its root.
-2. Push the repository's default branch.
-3. Open **Settings → Pages** in GitHub.
-4. Under **Build and deployment**, choose **GitHub Actions** as the source.
-
 The included workflow builds and deploys the game whenever the default branch is updated.
 
 ## License
