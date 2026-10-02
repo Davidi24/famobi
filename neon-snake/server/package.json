@@ -1,0 +1,34 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "emulators": "firebase emulators:start --project demo-famobi --import=./emulator-data --export-on-exit",
+    "dev": "node --watch --env-file-if-exists=.env src/index.js",
+    "seed": "node scripts/seed.js",
+    "start": "node --env-file-if-exists=.env src/index.js",
+    "test": "firebase emulators:exec --project demo-famobi \"node --test\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.8.1",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.8.1",
+  "type": "module",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "firebase-admin": "^14.5.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "firebase-tools": "^15.32.0"
+  }
+}

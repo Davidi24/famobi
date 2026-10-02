@@ -23,7 +23,11 @@ export class SnakeScene extends Phaser.Scene {
   private unsubscribe: (() => void) | null = null;
   private pointerStart: Point | null = null;
 
-  constructor(private readonly controller: GameController) {
+  constructor(
+    private readonly controller: GameController,
+    private readonly onPrimaryAction: () => void,
+    private readonly onTogglePause: () => void
+  ) {
     super({ key: 'SnakeScene' });
   }
 
@@ -57,16 +61,14 @@ export class SnakeScene extends Phaser.Scene {
       return;
     }
 
-    const snapshot = this.controller.getSnapshot();
     if (action.type === 'pause') {
-      this.controller.togglePlayerPause();
+      this.onTogglePause();
       return;
     }
 
-    if (snapshot.phase === 'menu' || snapshot.phase === 'finished') this.controller.startNewGame();
-    else if (snapshot.phase === 'paused' && snapshot.pauseSource === 'player') this.controller.togglePlayerPause();
-    else if (snapshot.phase === 'level-complete') this.controller.goToNextLevel();
-    else if (snapshot.phase === 'game-over') this.controller.restartLevel();
+    if (this.controller.getSnapshot().phase !== 'playing') {
+      this.onPrimaryAction();
+    }
   }
 
   private handlePointerDown = (pointer: Phaser.Input.Pointer): void => {

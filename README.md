@@ -1,69 +1,82 @@
 # Neon Snake
 
-A compact browser game built with Phaser 3, TypeScript, Vite, and a DOM-based interface.
+A browser game with Famobi SDK support, gameplay analytics, a local API, Firestore emulator storage, and a dashboard. The project code is in `neon-snake/`; the assessment brief is `task-description.pdf`.
 
-This repository is intentionally a small game only. It does not contain the Famobi SDK, analytics, a backend, or a dashboard.
+The backend is configured for local evaluation with the Firebase Emulator Suite. No real Firebase project is required.
 
-## Gameplay
+## How to install and run the project
 
-- Clear three increasingly fast levels.
-- Eat the required number of fruit to advance.
-- Avoid walls, your own trail, and level obstacles.
-- Pause, resume, retry, or return to the main menu.
-- Unlock levels, retain a best score, and restore mute preferences between sessions.
-- Hear lightweight procedural sound effects without external audio assets.
-- Play with arrow keys, WASD, swipe gestures, or the on-screen direction pad.
+Requirements: Node.js 22 or later, pnpm, and Java 21 or later for the Firestore emulator.
 
-## Run locally
-
-Requirements: Node.js 22 or newer and pnpm.
+From the `FAMOBI` folder, install dependencies:
 
 ```bash
-pnpm install
-pnpm dev
+cd neon-snake && pnpm install
+cd server && pnpm install
+cd ../dashboard && pnpm install
 ```
 
-Then open the local URL printed by Vite.
-
-## Checks
+Open four terminals in `FAMOBI`. Run one command in each terminal:
 
 ```bash
-pnpm check
-pnpm build
-pnpm preview
+cd neon-snake/server && pnpm emulators
 ```
 
-## Project structure
-
-```text
-src/
-├── application/
-│   ├── GameController.ts
-│   └── gameEvents.ts
-├── core/
-│   ├── audio/
-│   │   └── GameAudio.ts
-│   ├── events/
-│   │   └── EventBus.ts
-│   └── storage/
-│       └── GameStorage.ts
-├── game/
-│   ├── input.ts
-│   ├── levels.ts
-│   ├── scenes/
-│   │   └── SnakeScene.ts
-│   ├── snakeGame.ts
-│   └── types.ts
-├── main.ts
-└── style.css
+```bash
+cd neon-snake/server && pnpm dev
 ```
 
-The game simulation remains independent from Phaser. An application controller coordinates commands, persistence, audio, and domain events. The Phaser scene adapts simulation state into graphics and input, while the HUD and menus remain accessible DOM elements.
+```bash
+cd neon-snake && pnpm dev
+```
 
-Player preferences, the best score, completed runs, and unlocked levels are saved locally. Audio is generated in the browser without external media files.
+```bash
+cd neon-snake/dashboard && pnpm dev
+```
 
-The included workflow builds and deploys the game whenever the default branch is updated.
+Open the game at <http://localhost:5173> and the dashboard at <http://localhost:5174>. The Firebase Emulator UI is at <http://127.0.0.1:4000>.
 
-## License
+To add sample analytics data, run `cd neon-snake/server && pnpm seed` while the emulator is running.
 
-MIT
+## How to test the complete flow locally
+
+1. Start the emulator, API, game, and dashboard using the commands above.
+2. Open the game. Start a run and steer with the arrow keys or WASD.
+3. Pause and resume the game. Complete a level by collecting its required fruit, then try another level. You can also fail by hitting a wall or obstacle and try again.
+4. Open the Firebase Emulator UI. Check the `events` collection for raw events and `runs` for one summary per level attempt.
+5. Open the dashboard and refresh. Check that the run totals, outcomes, and level data match the runs in Firestore.
+6. To try the Famobi integration, check the browser console on localhost; the local Famobi tester logs SDK calls there. Platform-originated commands such as restart and mute require the online Famobi Tester.
+
+Run the automated checks from `FAMOBI`:
+
+```bash
+cd neon-snake && pnpm check && pnpm build
+cd dashboard && pnpm check && pnpm build
+cd ../server && pnpm test
+```
+
+The backend test command starts its own emulator. Stop the regular emulator first if it is running.
+
+## Main technical decisions
+
+- One run represents one attempt at one level. This makes level outcomes easy to compare.
+- The backend stores both raw events and a summary for each run. Event IDs prevent duplicate records when the game retries sending data.
+- The dashboard gets summaries from the API; the browser does not connect directly to Firestore.
+- The game uses Famobi storage when available and browser storage otherwise.
+- The demo Firebase project ID keeps local work on the emulator instead of a real Firebase project.
+
+## Assumptions and limitations
+
+- A session is one page load; the game does not identify individual players.
+- Score carries over between levels, so a run’s score is the current total.
+- The analytics queue is in memory. Events may be lost if the browser closes while the API is unavailable.
+- The API has no authentication or rate limiting, and statistics are calculated in memory. This setup is for local evaluation, not public use.
+- The online Famobi Tester is needed to verify all platform callbacks.
+
+## What I would improve with more time
+
+- Add trusted API access, rate limiting, monitoring, and durable delivery before any public release.
+- Store pre-aggregated statistics so the dashboard can handle larger datasets.
+- Add more automated game and dashboard flow tests, then verify the remaining Famobi callbacks in the online tester.
+
+
